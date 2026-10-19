@@ -2,3 +2,6 @@
 
 ### session-groups
 把当前项目的会话手动整理成分组：有关联的会话放到一起，点一下直接跳过去。
+
+### 主题
+基于obsidian主题Diagrammo Slate Plus移植一版
