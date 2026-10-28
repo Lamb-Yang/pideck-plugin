@@ -133,7 +133,7 @@ let pendingDeleteId = null; // 分组 id
 // 添加会话弹层状态
 const modal = { target: undefined, was: new Set(), now: new Set(), open: false };
 
-// 拖拽状态：被拖会话 id（作为 dataTransfer 的兑底）
+// 拖拽状态：被拖会话 id（作为 dataTransfer 的兜底）
 let draggingId = null;
 
 // 快速搜索：标题关键词过滤（保留分组结构，命中组自动展开、无命中组隐藏）
@@ -258,6 +258,23 @@ function applyTokens(tokens) {
 		const prop = name.startsWith("--") ? name : "--" + name;
 		style.setProperty(prop, value);
 		appliedTokenNames.add(prop);
+	}
+}
+
+// 首帧主题记忆：把当前主题与已应用的宿主 token 存进 sessionStorage，
+// 下次打开面板时 theme-boot.js 在首帧前恢复，避免按暗色兜底先画一帧再纠正（闪黑）。
+function rememberThemeBoot() {
+	try {
+		const root = document.documentElement;
+		sessionStorage.setItem("sg.boot.theme", root.dataset.theme || "dark");
+		const tokens = {};
+		for (const name of appliedTokenNames) {
+			const v = root.style.getPropertyValue(name);
+			if (v) tokens[name] = v;
+		}
+		sessionStorage.setItem("sg.boot.tokens", JSON.stringify(tokens));
+	} catch {
+		/* sessionStorage 不可用时跳过，theme-boot.js 退回系统亮暗推断 */
 	}
 }
 
@@ -415,6 +432,7 @@ async function applyContext(ctx, projectChanged) {
 	document.documentElement.dataset.theme = ctx.theme === "light" ? "light" : "dark";
 	// 宿主 token 直接内联到 <html>：不依赖宿主的 insertCSS 时机，切主题时同步刷新
 	applyTokens(ctx.tokens);
+	rememberThemeBoot(); // 存给下次首帧用，零闪恢复主题
 	pendingNew = false;
 	pendingRenameId = null;
 	pendingDeleteId = null;
@@ -489,8 +507,6 @@ function renderStaticText() {
 	$("modal-cancel").textContent = L.cancel;
 	$("modal-save").textContent = L.save;
 	$("btn-starred").textContent = L.starredOnly;
-	const infoClose = $("info-close");
-	if (infoClose) infoClose.title = L.cancel;
 }
 
 function sessionNode(id, inGroup) {
@@ -539,11 +555,6 @@ function sessionNode(id, inGroup) {
 		node.classList.remove("dragging");
 	});
 
-	// 会话详情：ⓘ 弹层卡片展示全部字段
-	const infoBtn = iconBtn("icon-btn session-info", "info", L.detailTitle);
-	infoBtn.addEventListener("click", () => openInfoModal(id));
-	node.append(infoBtn);
-
 	// 星标：点一下切换，配合顶栏「只看星标」过滤
 	const starred = state.data.starred.includes(id);
 	const starBtn = iconBtn("icon-btn session-star" + (starred ? " starred" : ""), "star", starred ? L.unstar : L.star, starred);
@@ -553,6 +564,11 @@ function sessionNode(id, inGroup) {
 		render();
 	});
 	node.append(starBtn);
+
+	// 会话详情：ⓘ 悬停（或聚焦/点击）在按钮旁弹出悬浮卡片
+	const infoBtn = iconBtn("icon-btn session-info", "info", L.detailTitle);
+	bindSessionPop(infoBtn, id);
+	node.append(infoBtn);
 
 	if (inGroup) {
 		const removeBtn = iconBtn("icon-btn session-remove", "close", L.removeSession);
@@ -753,6 +769,7 @@ function bindToggleAll() {
 }
 
 function render() {
+	hideSessionPopNow(); // 重绘会重建会话行，悬浮卡片一并收起，避免残留
 	$("project-name").textContent = state.projectName || L.noProject;
 	const total = state.sessions.size;
 	const filtering = filterQuery || starredOnly;
@@ -850,14 +867,32 @@ function bindNewGroup() {
 	});
 }
 
-/* ---------- 会话详情弹层（ⓘ） ---------- */
+/* ---------- 会话详情悬浮卡片（ⓘ 悬停触发） ---------- */
 
-function openInfoModal(id) {
+// 全局单例卡片：同一时刻只展示一条会话。
+// 悬停仅对鼠标生效（触屏只认点按）；显示延迟过滤扫过误触，隐藏延迟给“移入卡片”留时间。
+const POP_SHOW_DELAY_MS = 100;
+const POP_HIDE_DELAY_MS = 180;
+const pop = { el: null, title: null, body: null, showTimer: null, hideTimer: null, sessionId: null };
+
+function sessionPopEl() {
+	if (!pop.el) {
+		pop.el = $("session-pop");
+		pop.title = el("div", "session-pop-title");
+		pop.body = el("div", "session-pop-body");
+		pop.el.append(pop.title, pop.body);
+		// 鼠标从 ⓘ 移到卡片上时保持显示，离开卡片才收起
+		pop.el.addEventListener("mouseenter", cancelHideSessionPop);
+		pop.el.addEventListener("mouseleave", scheduleHideSessionPop);
+	}
+	return pop.el;
+}
+
+function fillSessionPop(id) {
 	const s = state.sessions.get(id);
-	if (!s) return;
-	$("info-title").textContent = s.title || L.untitled;
-	const body = $("info-body");
-	body.textContent = "";
+	if (!s) return false;
+	pop.title.textContent = s.title || L.untitled;
+	pop.body.textContent = "";
 	const g = groupOf(id);
 	const statusParts = [];
 	if (id === state.currentSessionId) statusParts.push(L.currentLabel);
@@ -877,21 +912,92 @@ function openInfoModal(id) {
 	for (const [label, value] of rows) {
 		const row = el("div", "info-row");
 		row.append(el("span", "info-label", label), el("span", "info-value", value));
-		body.append(row);
+		pop.body.append(row);
 	}
-	$("info-overlay").hidden = false;
+	return true;
 }
 
-function closeInfoModal() {
-	$("info-overlay").hidden = true;
+function cancelPopTimers() {
+	if (pop.showTimer) {
+		clearTimeout(pop.showTimer);
+		pop.showTimer = null;
+	}
+	cancelHideSessionPop();
 }
 
-function bindInfoModal() {
-	const overlay = $("info-overlay");
-	if (!overlay) return;
-	$("info-close").addEventListener("click", closeInfoModal);
-	overlay.addEventListener("click", (e) => {
-		if (e.target === overlay) closeInfoModal(); // 点遮罩关闭，点卡片内不关
+function hideSessionPopNow() {
+	cancelPopTimers();
+	pop.sessionId = null;
+	if (pop.el) {
+		pop.el.classList.remove("visible"); // 先撤过渡态再 display:none，下次入场动画从零开始
+		pop.el.hidden = true;
+	}
+}
+
+function scheduleHideSessionPop() {
+	if (pop.showTimer) {
+		clearTimeout(pop.showTimer);
+		pop.showTimer = null; // 还没显示就移出：把待显示也一并取消
+	}
+	if (pop.hideTimer) clearTimeout(pop.hideTimer);
+	pop.hideTimer = setTimeout(hideSessionPopNow, POP_HIDE_DELAY_MS); // 留出鼠标移到卡片上的时间
+}
+
+function cancelHideSessionPop() {
+	if (pop.hideTimer) {
+		clearTimeout(pop.hideTimer);
+		pop.hideTimer = null;
+	}
+}
+
+function showSessionPop(anchor, id) {
+	cancelPopTimers(); // 跨行切换：取消上一行遗留的待执行隐藏，否则新卡片会被旧计时器藏掉
+	const node = sessionPopEl();
+	if (!fillSessionPop(id)) {
+		hideSessionPopNow();
+		return;
+	}
+	pop.sessionId = id;
+	// 先脱离 hidden（此时透明占位）→ 量尺寸定位 → 加 .visible 触发入场过渡
+	node.hidden = false;
+	// 右缘对齐按钮右缘向左展开，放不下时上/下翻折，都夹在视口内
+	const r = anchor.getBoundingClientRect();
+	const pr = node.getBoundingClientRect();
+	let left = Math.max(8, Math.min(r.right + 6 - pr.width, window.innerWidth - pr.width - 8));
+	let top = r.bottom + 6;
+	if (top + pr.height > window.innerHeight - 8) top = r.top - pr.height - 6;
+	node.style.left = Math.max(8, left) + "px";
+	node.style.top = Math.max(8, top) + "px";
+	node.classList.add("visible");
+}
+
+function scheduleShowSessionPop(anchor, id) {
+	cancelHideSessionPop();
+	if (pop.showTimer) clearTimeout(pop.showTimer);
+	pop.showTimer = setTimeout(() => {
+		pop.showTimer = null;
+		showSessionPop(anchor, id);
+	}, POP_SHOW_DELAY_MS); // 意图确认：停留才弹，扫过不闪
+}
+
+function bindSessionPop(btn, id) {
+	// 悬停仅鼠标：触屏 tap 会模拟 pointerenter（pointerType=touch），放行会造成
+	// “先模拟悬停显示、再被 click 收起”——首次点按等于没点。触屏统一走下方 click。
+	btn.addEventListener("pointerenter", (e) => {
+		if (e.pointerType && e.pointerType !== "mouse") return;
+		scheduleShowSessionPop(btn, id);
+	});
+	btn.addEventListener("pointerleave", (e) => {
+		if (e.pointerType && e.pointerType !== "mouse") return;
+		scheduleHideSessionPop();
+	});
+	btn.addEventListener("focus", () => showSessionPop(btn, id)); // 键盘可达
+	btn.addEventListener("blur", hideSessionPopNow);
+	// 点击只服务触屏/pen（鼠标悬停已能看卡片，点了反而收起很怪）
+	btn.addEventListener("click", (e) => {
+		if (e.pointerType === "mouse") return;
+		if (pop.sessionId === id && pop.el && !pop.el.hidden) hideSessionPopNow();
+		else showSessionPop(btn, id);
 	});
 }
 
@@ -926,6 +1032,7 @@ function bindSearch() {
 
 function openModal(targetId) {
 	// targetId: 分组 id；null = 未分组
+	hideSessionPopNow(); // 弹层盖全屏，悬停卡片别浮在上面
 	modal.open = true;
 	modal.target = targetId;
 	modal.was = new Set(targetId ? groupById(targetId).sessionIds : ungroupedIds());
@@ -1011,7 +1118,10 @@ async function boot() {
 	bindModal();
 	bindToggleAll();
 	bindSearch();
-	bindInfoModal();
+	document.addEventListener("keydown", (e) => {
+		if (e.key === "Escape") hideSessionPopNow(); // Esc 收起悬浮卡片（不影响弹层自己的 Esc 逻辑）
+	});
+	document.addEventListener("scroll", hideSessionPopNow, true); // 任意容器滚动即收：fixed 卡片不跟随滚动
 	const starredBtn = $("btn-starred");
 	if (starredBtn) {
 		starredBtn.addEventListener("click", () => {

@@ -4,6 +4,8 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>会话分组</title>
+		<!-- 首帧主题引导：先于首帧恢复上次主题/宿主配色，避免按暗色兜底先画一帧（闪黑） -->
+		<script src="theme-boot.js"></script>
 		<link rel="stylesheet" href="styles.css" />
 	</head>
 	<body>
@@ -54,17 +56,8 @@
 			</div>
 		</div>
 
-		<div id="info-overlay" class="overlay" hidden>
-			<div class="modal info-modal" role="dialog" aria-modal="true">
-				<div class="modal-head">
-					<span id="info-title" class="modal-title"></span>
-					<button id="info-close" class="icon-btn" type="button" aria-label="close">
-						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
-					</button>
-				</div>
-				<div id="info-body" class="info-body"></div>
-			</div>
-		</div>
+		<!-- 会话详情悬浮卡片：ⓘ 悬停/聚焦/点击时由 app.js 填充内容并定位 -->
+		<div id="session-pop" class="session-pop" hidden></div>
 
 		<script type="module" src="app.js"></script>
 	</body>
