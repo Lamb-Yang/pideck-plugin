@@ -13,6 +13,7 @@
 				<span id="project-count" class="project-count"></span>
 			</div>
 			<div class="topbar-controls">
+				<button id="btn-starred" class="btn" type="button"></button>
 				<button id="btn-toggle-all" class="btn" type="button"></button>
 				<button id="btn-new" class="btn primary" type="button"></button>
 			</div>
@@ -20,7 +21,9 @@
 
 		<div class="search-row">
 			<input id="search-input" class="text-input" type="text" />
-			<button id="search-clear" class="icon-btn" type="button" hidden>×</button>
+			<button id="search-clear" class="icon-btn" type="button" hidden aria-label="clear">
+				<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
+			</button>
 		</div>
 
 		<div id="new-group-row" class="new-group-row" hidden>
@@ -37,7 +40,9 @@
 			<div class="modal" role="dialog" aria-modal="true">
 				<div class="modal-head">
 					<span id="modal-title" class="modal-title"></span>
-					<button id="modal-close" class="icon-btn" type="button" aria-label="close">×</button>
+					<button id="modal-close" class="icon-btn" type="button" aria-label="close">
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
+					</button>
 				</div>
 				<input id="modal-search" class="text-input" type="text" />
 				<div id="modal-list" class="modal-list"></div>
@@ -53,7 +58,9 @@
 			<div class="modal info-modal" role="dialog" aria-modal="true">
 				<div class="modal-head">
 					<span id="info-title" class="modal-title"></span>
-					<button id="info-close" class="icon-btn" type="button" aria-label="close">×</button>
+					<button id="info-close" class="icon-btn" type="button" aria-label="close">
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
+					</button>
 				</div>
 				<div id="info-body" class="info-body"></div>
 			</div>

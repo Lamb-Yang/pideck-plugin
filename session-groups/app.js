@@ -38,7 +38,6 @@ const STR = {
 		inGroup: "当前在",
 		untitled: "（无标题）",
 		activeNow: "活跃中",
-		currentTag: "当前",
 		detailTitle: "会话详情",
 		fieldGroup: "所属分组",
 		fieldModel: "模型",
@@ -53,6 +52,11 @@ const STR = {
 		collapseAll: "全部收起",
 		noMatch: "没有匹配的会话",
 		clearSearch: "清空搜索",
+		star: "星标",
+		unstar: "取消星标",
+		starredOnly: "只看星标",
+		noStarred: "还没有星标会话",
+		starredTag: "已星标",
 	},
 	"en-US": {
 		newGroup: "New group",
@@ -84,7 +88,6 @@ const STR = {
 		inGroup: "in",
 		untitled: "(untitled)",
 		activeNow: "Active",
-		currentTag: "Current",
 		detailTitle: "Session details",
 		fieldGroup: "Group",
 		fieldModel: "Model",
@@ -99,6 +102,11 @@ const STR = {
 		collapseAll: "Collapse all",
 		noMatch: "No matching sessions",
 		clearSearch: "Clear search",
+		star: "Star",
+		unstar: "Unstar",
+		starredOnly: "Starred only",
+		noStarred: "No starred sessions yet",
+		starredTag: "Starred",
 	},
 };
 
@@ -131,10 +139,27 @@ let draggingId = null;
 // 快速搜索：标题关键词过滤（保留分组结构，命中组自动展开、无命中组隐藏）
 let filterQuery = "";
 
+// 只看星标：会话过滤开关（不持久化，切项目重置）
+let starredOnly = false;
+
 function matchesQuery(id) {
 	if (!filterQuery) return true;
 	const s = state.sessions.get(id);
 	return Boolean(s && (s.title || "").toLowerCase().includes(filterQuery));
+}
+
+// 可见性 = 标题搜索 × 只看星标（两个过滤条件叠加）
+function isSessionVisible(id) {
+	if (!matchesQuery(id)) return false;
+	if (starredOnly && !state.data.starred.includes(id)) return false;
+	return true;
+}
+
+function toggleStar(id) {
+	const list = state.data.starred;
+	const i = list.indexOf(id);
+	if (i >= 0) list.splice(i, 1);
+	else list.push(id);
 }
 
 /* ---------- 工具 ---------- */
@@ -146,6 +171,50 @@ function el(tag, cls, text) {
 	if (cls) node.className = cls;
 	if (text != null) node.textContent = text;
 	return node;
+}
+
+// 线性图标（14px，描边随 currentColor）：所有按钮符号统一走这一套，不再用字符/emoji
+const ICON_PATHS = {
+	plus: ["M12 5v14", "M5 12h14"],
+	chevron: ["M9 6l6 6-6 6"],
+	pencil: ["M12 20h9", "M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"],
+	trash: [
+		"M3 6h18",
+		"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+		"M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+		"M10 11v6",
+		"M14 11v6",
+	],
+	info: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z", "M12 8h.01", "M12 12v4"],
+	close: ["M18 6L6 18", "M6 6l12 12"],
+	star: ["M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"],
+};
+
+function svgIcon(name, filled) {
+	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	svg.setAttribute("viewBox", "0 0 24 24");
+	svg.setAttribute("width", "14");
+	svg.setAttribute("height", "14");
+	svg.setAttribute("fill", filled ? "currentColor" : "none");
+	svg.setAttribute("stroke", "currentColor");
+	svg.setAttribute("stroke-width", "1.5");
+	svg.setAttribute("stroke-linecap", "round");
+	svg.setAttribute("stroke-linejoin", "round");
+	svg.setAttribute("aria-hidden", "true");
+	for (const d of ICON_PATHS[name] || []) {
+		const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+		path.setAttribute("d", d);
+		svg.append(path);
+	}
+	return svg;
+}
+
+function iconBtn(cls, name, title, filled) {
+	const btn = el("button", cls);
+	btn.type = "button";
+	if (title) btn.title = title;
+	btn.append(svgIcon(name, filled));
+	return btn;
 }
 
 // projectId 不能直接当 storage key（键名只允许 [a-zA-Z0-9_.-]{1,80}）：
@@ -279,7 +348,7 @@ async function save() {
 async function loadProjectData(projectId) {
 	const key = storageKeyFor(projectId);
 	state.storageKey = key;
-	state.data = { v: 1, groups: [], collapsed: [] };
+	state.data = { v: 1, groups: [], collapsed: [], starred: [] };
 	try {
 		const raw = await pideck.storage.get(key);
 		if (raw && typeof raw === "object" && Array.isArray(raw.groups)) {
@@ -291,9 +360,10 @@ async function loadProjectData(projectId) {
 						id: g.id,
 						name: g.name,
 						createdAt: typeof g.createdAt === "number" ? g.createdAt : Date.now(),
-						sessionIds: Array.isArray(g.sessionIds) ? g.sessionIds.filter((x) => typeof x === "string") : [],
-					})),
+					sessionIds: Array.isArray(g.sessionIds) ? g.sessionIds.filter((x) => typeof x === "string") : [],
+				})),
 				collapsed: Array.isArray(raw.collapsed) ? raw.collapsed.filter((x) => typeof x === "string") : [],
+				starred: Array.isArray(raw.starred) ? raw.starred.filter((x) => typeof x === "string") : [],
 			};
 		}
 	} catch (err) {
@@ -326,6 +396,10 @@ function pruneGroups() {
 	}
 	// "__ungrouped__" 是未分组区的伪 id，也要保留
 	state.data.collapsed = state.data.collapsed.filter((id) => id === "__ungrouped__" || groupById(id));
+	// 星标引用同样随会话删除清理
+	const starBefore = state.data.starred.length;
+	state.data.starred = state.data.starred.filter((id) => state.sessions.has(id));
+	if (state.data.starred.length !== starBefore) changed = true;
 	return changed;
 }
 
@@ -344,15 +418,16 @@ async function applyContext(ctx, projectChanged) {
 	pendingNew = false;
 	pendingRenameId = null;
 	pendingDeleteId = null;
-	// 切项目时清空搜索，避免拿旧关键词过滤新项目的会话
+	// 切项目时清空搜索/星标过滤，避免拿旧条件过滤新项目的会话
 	filterQuery = "";
+	starredOnly = false;
 	const searchInput = $("search-input");
 	if (searchInput) searchInput.value = "";
 	closeModal(false);
 	renderStaticText();
 	if (!ctx.projectId) {
 		state.sessions = new Map();
-		state.data = { v: 1, groups: [], collapsed: [] };
+		state.data = { v: 1, groups: [], collapsed: [], starred: [] };
 		state.storageKey = null;
 		render();
 		return;
@@ -413,6 +488,7 @@ function renderStaticText() {
 	if (searchClear) searchClear.title = L.clearSearch;
 	$("modal-cancel").textContent = L.cancel;
 	$("modal-save").textContent = L.save;
+	$("btn-starred").textContent = L.starredOnly;
 	const infoClose = $("info-close");
 	if (infoClose) infoClose.title = L.cancel;
 }
@@ -431,11 +507,13 @@ function sessionNode(id, inGroup) {
 		titleRow.append(dot);
 	}
 	titleRow.append(el("div", "session-title", s.title || L.untitled));
-	if (id === state.currentSessionId) titleRow.append(el("span", "tag current-tag", L.currentTag));
 	// 固定紧凑单行：标题行尾带相对时间
 	const rel = fmtTime(s.updatedAt);
 	if (rel) titleRow.append(el("span", "compact-time", rel));
-	if (!s.readable) node.classList.add("unreadable");
+	if (!s.readable) {
+		node.classList.add("unreadable");
+		titleRow.append(el("span", "tag", L.unreadableTag));
+	}
 	main.append(titleRow);
 	main.addEventListener("click", async () => {
 		try {
@@ -462,16 +540,22 @@ function sessionNode(id, inGroup) {
 	});
 
 	// 会话详情：ⓘ 弹层卡片展示全部字段
-	const infoBtn = el("button", "icon-btn session-info", "ⓘ");
-	infoBtn.type = "button";
-	infoBtn.title = L.detailTitle;
+	const infoBtn = iconBtn("icon-btn session-info", "info", L.detailTitle);
 	infoBtn.addEventListener("click", () => openInfoModal(id));
 	node.append(infoBtn);
 
+	// 星标：点一下切换，配合顶栏「只看星标」过滤
+	const starred = state.data.starred.includes(id);
+	const starBtn = iconBtn("icon-btn session-star" + (starred ? " starred" : ""), "star", starred ? L.unstar : L.star, starred);
+	starBtn.addEventListener("click", async () => {
+		toggleStar(id);
+		await save();
+		render();
+	});
+	node.append(starBtn);
+
 	if (inGroup) {
-		const removeBtn = el("button", "icon-btn session-remove", "×");
-		removeBtn.type = "button";
-		removeBtn.title = L.removeSession;
+		const removeBtn = iconBtn("icon-btn session-remove", "close", L.removeSession);
 		removeBtn.addEventListener("click", async () => {
 			assign(id, null);
 			await save();
@@ -530,8 +614,7 @@ function groupNode(g, visibleIds) {
 
 	// --- 组头 ---
 	const head = el("div", "group-head");
-	const chevron = el("button", "icon-btn chevron", "▸");
-	chevron.type = "button";
+	const chevron = iconBtn("icon-btn chevron", "chevron");
 	chevron.addEventListener("click", () => toggleCollapse(g.id));
 
 	if (pendingRenameId === g.id) {
@@ -566,21 +649,15 @@ function groupNode(g, visibleIds) {
 	} else {
 		head.append(chevron, el("span", "group-name", g.name), el("span", "group-count", ids.length + " " + L.sessionsUnit));
 		const actions = el("span", "group-actions");
-		const addBtn = el("button", "icon-btn", "＋");
-		addBtn.type = "button";
-		addBtn.title = L.addSessions;
+		const addBtn = iconBtn("icon-btn", "plus", L.addSessions);
 		addBtn.addEventListener("click", () => openModal(g.id));
-		const renameBtn = el("button", "icon-btn", "✎");
-		renameBtn.type = "button";
-		renameBtn.title = L.rename;
+		const renameBtn = iconBtn("icon-btn", "pencil", L.rename);
 		renameBtn.addEventListener("click", () => {
 			pendingRenameId = g.id;
 			pendingDeleteId = null;
 			render();
 		});
-		const deleteBtn = el("button", "icon-btn", "🗑");
-		deleteBtn.type = "button";
-		deleteBtn.title = L.deleteGroup;
+		const deleteBtn = iconBtn("icon-btn", "trash", L.deleteGroup);
 		deleteBtn.addEventListener("click", () => {
 			pendingDeleteId = g.id;
 			pendingRenameId = null;
@@ -629,14 +706,11 @@ function ungroupedNode(visibleIds) {
 	const collapsed = visibleIds == null && state.data.collapsed.includes("__ungrouped__");
 	const section = el("section", "group ungrouped" + (collapsed ? " collapsed" : ""));
 	const head = el("div", "group-head");
-	const chevron = el("button", "icon-btn chevron", "▸");
-	chevron.type = "button";
+	const chevron = iconBtn("icon-btn chevron", "chevron");
 	chevron.addEventListener("click", () => toggleCollapse("__ungrouped__"));
 	head.append(chevron, el("span", "group-name", L.ungrouped), el("span", "group-count", ids.length + " " + L.sessionsUnit));
 	const actions = el("span", "group-actions");
-	const addBtn = el("button", "icon-btn", "＋");
-	addBtn.type = "button";
-	addBtn.title = L.addSessions;
+	const addBtn = iconBtn("icon-btn", "plus", L.addSessions);
 	addBtn.addEventListener("click", () => openModal(null));
 	actions.append(addBtn);
 	head.append(actions);
@@ -681,12 +755,16 @@ function bindToggleAll() {
 function render() {
 	$("project-name").textContent = state.projectName || L.noProject;
 	const total = state.sessions.size;
-	const matchCount = filterQuery
-		? [...state.sessions.values()].filter((s) => (s.title || "").toLowerCase().includes(filterQuery)).length
-		: total;
+	const filtering = filterQuery || starredOnly;
+	const visibleCount = filtering ? [...state.sessions.keys()].filter(isSessionVisible).length : total;
 	$("project-count").textContent = state.projectId
-		? (filterQuery ? matchCount + " / " + total + " " + L.sessionsUnit : total + " " + L.sessionsUnit)
+		? (filtering ? visibleCount + " / " + total + " " + L.sessionsUnit : total + " " + L.sessionsUnit)
 		: "";
+	const starredBtn = $("btn-starred");
+	if (starredBtn) {
+		starredBtn.disabled = !state.projectId;
+		starredBtn.classList.toggle("primary", starredOnly);
+	}
 	$("btn-new").disabled = !state.projectId;
 	const toggleAllBtn = $("btn-toggle-all");
 	if (toggleAllBtn) {
@@ -707,23 +785,23 @@ function render() {
 		return;
 	}
 
-	// 搜索过滤：保留分组结构，命中组自动展开，无命中的组/未分组隐藏
-	if (filterQuery) {
+	// 过滤（搜索 / 只看星标）：保留分组结构，命中组自动展开，无命中的组/未分组隐藏
+	if (filtering) {
 		let shown = 0;
 		for (const g of sortedGroups()) {
-			const ids = g.sessionIds.filter(matchesQuery);
+			const ids = g.sessionIds.filter(isSessionVisible);
 			if (ids.length === 0) continue;
 			shown += ids.length;
 			container.append(groupNode(g, ids));
 		}
-		const unIds = ungroupedIds().filter(matchesQuery);
+		const unIds = ungroupedIds().filter(isSessionVisible);
 		if (unIds.length > 0) {
 			shown += unIds.length;
 			container.append(ungroupedNode(unIds));
 		}
 		if (shown === 0) {
 			const hint = el("div", "empty-state");
-			hint.append(el("div", "empty-title", L.noMatch));
+			hint.append(el("div", "empty-title", filterQuery ? L.noMatch : L.noStarred));
 			container.append(hint);
 		}
 		return;
@@ -783,6 +861,7 @@ function openInfoModal(id) {
 	const g = groupOf(id);
 	const statusParts = [];
 	if (id === state.currentSessionId) statusParts.push(L.currentLabel);
+	if (state.data.starred.includes(id)) statusParts.push(L.starredTag);
 	if (isRecentlyActive(s)) statusParts.push(L.activeNow);
 	if (!s.readable) statusParts.push(L.unreadableTag);
 	const full = fmtDateTime(s.updatedAt);
@@ -933,6 +1012,13 @@ async function boot() {
 	bindToggleAll();
 	bindSearch();
 	bindInfoModal();
+	const starredBtn = $("btn-starred");
+	if (starredBtn) {
+		starredBtn.addEventListener("click", () => {
+			starredOnly = !starredOnly;
+			render();
+		});
+	}
 	const ctx = await pideck.context.get();
 	state.ready = false;
 	await applyContext(ctx, true);

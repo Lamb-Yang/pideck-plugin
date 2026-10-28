@@ -1,4 +1,4 @@
-/* 会话分组 — Ant Design 形态 + 宿主配色（v1.2.0）
+/* 会话分组 — Ant Design 形态 + 宿主配色（v1.8.0）
    颜色：优先宿主 --color-* token（app.js 把 context.tokens 内联到 <html>）；
    形态：圆角 / 间距 / 字号 / 阴影 / 悬停按 AntD v5 设计语言，本地兜底色板取自 AntD token。
    尺寸：固定紧凑单行布局（密度三档已移除）；完整字段进 ⓘ 详情弹层。
@@ -16,7 +16,7 @@
 	--sg-head-y: 5px;
 	--sg-card-pad: 8px;
 	--sg-gap: 8px;
-	--sg-body-pad: 12px;
+	--sg-body-pad: 16px;
 	--sg-modal-pad: 12px;
 
 	/* 本地暗色兜底（AntD dark token 近似值） */
@@ -32,6 +32,7 @@
 	--sg-accent-fg: #fff;
 	--sg-danger: #dc4446;
 	--sg-ok: #49aa19;
+	--sg-star: #d89614;
 	--sg-scrim: rgba(0, 0, 0, 0.45);
 }
 
@@ -45,10 +46,11 @@
 	--sg-text-3: rgba(0, 0, 0, 0.45);
 	--sg-border: #d9d9d9;
 	--sg-border-2: #f0f0f0;
-	--sg-accent: #1677ff;
+	--sg-accent: #0958d9;
 	--sg-accent-fg: #fff;
 	--sg-danger: #ff4d4f;
 	--sg-ok: #52c41a;
+	--sg-star: #faad14;
 	--sg-scrim: rgba(0, 0, 0, 0.45);
 }
 
@@ -56,8 +58,13 @@
 	box-sizing: border-box;
 }
 
+html {
+	background: var(--color-bg-app, var(--sg-bg-layout));
+}
+
 body {
-	margin: 0;
+	margin: 0 auto;
+	max-width: 768px;
 	padding: var(--sg-body-pad) var(--sg-body-pad) calc(var(--sg-body-pad) + 8px);
 	font-size: var(--sg-font);
 	line-height: 1.5715;
@@ -121,7 +128,7 @@ button {
 	background: var(--color-bg-panel, var(--sg-bg-container));
 	color: var(--color-text-primary, var(--sg-text));
 	cursor: pointer;
-	transition: all 0.2s;
+	transition: border-color 0.2s, background-color 0.2s, color 0.2s, filter 0.2s;
 }
 
 .btn:hover {
@@ -185,8 +192,10 @@ button:focus-visible {
 	background: transparent;
 	color: var(--color-text-secondary, var(--sg-text-2));
 	cursor: pointer;
-	line-height: calc(var(--sg-ctl-s) - 2px);
-	transition: all 0.2s;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.2s, background-color 0.2s;
 }
 
 .icon-btn:hover {
@@ -382,8 +391,7 @@ button:focus-visible {
 	padding-left: 18px;
 }
 
-/* 当前会话左侧高亮条：伪元素直角竖条，不随 border-radius 变圆；
-   上下内缩 6px（＝行内边距），高度与文本内容一致 */
+/* 当前会话：左侧高亮条 + 加粗标题（不再叠加 badge 与彩色文字，一行一个状态标记） */
 .session.current .session-main::before {
 	content: "";
 	position: absolute;
@@ -395,12 +403,12 @@ button:focus-visible {
 }
 
 .session.current .session-title {
-	color: var(--color-accent, var(--sg-accent));
 	font-weight: 600;
 }
 
-.session.unreadable {
-	opacity: 0.5;
+/* 不可读会话：标题降为二级灰 + 「不可读」标签，不整行降透明度 */
+.session.unreadable .session-title {
+	color: var(--color-text-secondary, var(--sg-text-2));
 }
 
 .session-title {
@@ -410,7 +418,7 @@ button:focus-visible {
 	font-size: var(--sg-font);
 }
 
-/* 标题行：活跃绿点 + 标题 + 「当前」小标签 */
+/* 标题行：活跃绿点 + 标题 + 相对时间（＋不可读时的中性标签） */
 
 .session-title-row {
 	display: flex;
@@ -429,22 +437,6 @@ button:focus-visible {
 	border-radius: 50%;
 	background: var(--sg-ok);
 	flex-shrink: 0;
-}
-
-.current-tag {
-	flex-shrink: 0;
-	font-size: var(--sg-font-s);
-	line-height: 18px;
-	padding: 0 6px;
-	border-radius: 4px;
-	border: 1px solid var(--color-accent, var(--sg-accent));
-	color: var(--color-accent, var(--sg-accent));
-	background: transparent;
-}
-
-.current-tag {
-	border-color: color-mix(in srgb, var(--color-accent, var(--sg-accent)) 40%, transparent);
-	background: color-mix(in srgb, var(--color-accent, var(--sg-accent)) 8%, transparent);
 }
 
 .session-meta {
@@ -490,6 +482,21 @@ button:focus-visible {
 .session-remove:hover {
 	color: var(--color-danger, var(--sg-danger));
 	background: color-mix(in srgb, var(--color-danger, var(--sg-danger)) 10%, transparent);
+}
+
+/* 星标：默认灰描边空星，点亮后金色实星 */
+
+.session-star {
+	flex-shrink: 0;
+}
+
+.session-star.starred {
+	color: var(--sg-star);
+}
+
+.session-star.starred:hover {
+	background: color-mix(in srgb, var(--sg-star) 12%, transparent);
+	color: var(--sg-star);
 }
 
 /* ---------- 空态 / 提示 ---------- */
