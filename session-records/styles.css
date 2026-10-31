@@ -1,0 +1,748 @@
+/* 会话分组 — Ant Design 形态 + 宿主配色（v1.9.2）
+   颜色：优先宿主 --color-* token（app.js 把 context.tokens 内联到 <html>）；
+   形态：圆角 / 间距 / 字号 / 阴影 / 悬停按 AntD v5 设计语言，本地兜底色板取自 AntD token。
+   尺寸：固定紧凑单行布局（密度三档已移除）；完整字段进 ⓘ 悬浮卡片（悬停触发）。
+   悬停 / 焦点的浅色调用 color-mix 从主题色派生（Chromium 111+），
+   每处都先写一条普通回退声明，color-mix 不支持时自动降级。 */
+
+:root {
+	/* 尺寸：紧凑档数值固定 */
+	--sg-font: 13px;
+	--sg-font-s: 12px;
+	--sg-ctl: 28px;
+	--sg-ctl-s: 22px;
+	--sg-ctl-pad: 11px;
+	--sg-row-y: 4px;
+	--sg-head-y: 5px;
+	--sg-card-pad: 8px;
+	--sg-gap: 8px;
+	--sg-body-pad: 16px;
+	--sg-modal-pad: 12px;
+
+	/* 本地暗色兜底（AntD dark token 近似值） */
+	--sg-bg-layout: #141414;
+	--sg-bg-container: #1f1f1f;
+	--sg-bg-input: #1f1f1f;
+	--sg-text: rgba(255, 255, 255, 0.88);
+	--sg-text-2: rgba(255, 255, 255, 0.65);
+	--sg-text-3: rgba(255, 255, 255, 0.45);
+	--sg-border: #424242;
+	--sg-border-2: #333;
+	--sg-accent: #1668dc;
+	--sg-accent-fg: #fff;
+	--sg-danger: #dc4446;
+	--sg-ok: #49aa19;
+	--sg-star: #d89614;
+	--sg-scrim: rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] {
+	/* 本地亮色兜底（AntD light token 近似值） */
+	--sg-bg-layout: #f5f5f5;
+	--sg-bg-container: #ffffff;
+	--sg-bg-input: #ffffff;
+	--sg-text: rgba(0, 0, 0, 0.88);
+	--sg-text-2: rgba(0, 0, 0, 0.65);
+	--sg-text-3: rgba(0, 0, 0, 0.45);
+	--sg-border: #d9d9d9;
+	--sg-border-2: #f0f0f0;
+	--sg-accent: #0958d9;
+	--sg-accent-fg: #fff;
+	--sg-danger: #ff4d4f;
+	--sg-ok: #52c41a;
+	--sg-star: #faad14;
+		--sg-scrim: rgba(0, 0, 0, 0.45);
+}
+
+/* 首帧主题兜底：theme-boot.js 因任何原因未设 data-theme 且系统为亮色时，
+   首帧直接用亮色，避免黑底闪帧；data-theme 一旦被设置本块即不参与。 */
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme]) {
+		--sg-bg-layout: #f5f5f5;
+		--sg-bg-container: #ffffff;
+		--sg-bg-input: #ffffff;
+		--sg-text: rgba(0, 0, 0, 0.88);
+		--sg-text-2: rgba(0, 0, 0, 0.65);
+		--sg-text-3: rgba(0, 0, 0, 0.45);
+		--sg-border: #d9d9d9;
+		--sg-border-2: #f0f0f0;
+		--sg-accent: #0958d9;
+		--sg-accent-fg: #fff;
+		--sg-danger: #ff4d4f;
+		--sg-ok: #52c41a;
+		--sg-star: #faad14;
+		--sg-scrim: rgba(0, 0, 0, 0.45);
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	background: var(--color-bg-app, var(--sg-bg-layout));
+}
+
+body {
+	margin: 0 auto;
+	max-width: 768px;
+	padding: var(--sg-body-pad) var(--sg-body-pad) calc(var(--sg-body-pad) + 8px);
+	font-size: var(--sg-font);
+	line-height: 1.5715;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+		"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+	background: var(--color-bg-app, var(--sg-bg-layout));
+	color: var(--color-text-primary, var(--sg-text));
+	min-height: 100vh;
+}
+
+button {
+	font: inherit;
+}
+
+/* ---------- 顶栏 ---------- */
+
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: var(--sg-gap);
+}
+
+.topbar-info {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	min-width: 0;
+}
+
+.topbar-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.project-name {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.project-count {
+	color: var(--color-text-secondary, var(--sg-text-2));
+	white-space: nowrap;
+	font-size: var(--sg-font-s);
+}
+
+/* ---------- 按钮（AntD 形态） ---------- */
+
+.btn {
+	height: var(--sg-ctl);
+	padding: 0 var(--sg-ctl-pad);
+	border: 1px solid var(--color-border-default, var(--sg-border));
+	border-radius: 6px;
+	background: var(--color-bg-panel, var(--sg-bg-container));
+	color: var(--color-text-primary, var(--sg-text));
+	cursor: pointer;
+	transition: border-color 0.2s, background-color 0.2s, color 0.2s, filter 0.2s;
+}
+
+.btn:hover {
+	border-color: var(--color-accent, var(--sg-accent));
+	color: var(--color-accent, var(--sg-accent));
+}
+
+.btn:active {
+	border-color: var(--color-accent, var(--sg-accent));
+}
+
+.btn:disabled {
+	opacity: 0.45;
+	cursor: default;
+	color: var(--color-text-secondary, var(--sg-text-2));
+	border-color: var(--color-border-default, var(--sg-border-2));
+}
+
+.btn.primary {
+	background: var(--color-accent, var(--sg-accent));
+	border-color: var(--color-accent, var(--sg-accent));
+	color: var(--color-text-inverse, var(--sg-accent-fg));
+}
+
+.btn.primary:hover {
+	color: var(--color-text-inverse, var(--sg-accent-fg));
+	background: var(--color-accent, var(--sg-accent));
+	filter: brightness(1.12);
+}
+
+.btn.danger {
+	color: var(--color-danger, var(--sg-danger));
+	border-color: var(--color-danger, var(--sg-danger));
+}
+
+.btn.danger:hover {
+	color: var(--color-danger, var(--sg-danger));
+	border-color: var(--color-danger, var(--sg-danger));
+	background: color-mix(in srgb, var(--color-danger, var(--sg-danger)) 10%, transparent);
+}
+
+.btn-s {
+	height: var(--sg-ctl-s);
+	padding: 0 7px;
+	font-size: var(--sg-font-s);
+}
+
+button:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--color-accent, var(--sg-accent)) 50%, transparent);
+	outline-offset: 1px;
+}
+
+/* 图标按钮 */
+
+.icon-btn {
+	width: var(--sg-ctl-s);
+	height: var(--sg-ctl-s);
+	padding: 0;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--color-text-secondary, var(--sg-text-2));
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.2s, background-color 0.2s;
+}
+
+.icon-btn:hover {
+	background: color-mix(in srgb, var(--color-text-primary, var(--sg-text)) 8%, transparent);
+	color: var(--color-text-primary, var(--sg-text));
+}
+
+/* ---------- 输入框 ---------- */
+
+.text-input {
+	height: var(--sg-ctl);
+	padding: 0 11px;
+	border: 1px solid var(--color-border-default, var(--sg-border));
+	border-radius: 6px;
+	background: var(--color-bg-input, var(--sg-bg-input));
+	color: var(--color-text-primary, var(--sg-text));
+	font: inherit;
+	font-size: var(--sg-font);
+	outline: none;
+	min-width: 0;
+	transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.text-input::placeholder {
+	color: var(--sg-text-3);
+}
+
+.text-input:focus {
+	border-color: var(--color-accent, var(--sg-accent));
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent, var(--sg-accent)) 15%, transparent);
+}
+
+/* ---------- 搜索行 ---------- */
+
+.search-row {
+	display: flex;
+	gap: 6px;
+	margin-bottom: var(--sg-gap);
+	align-items: center;
+}
+
+.search-row .text-input {
+	flex: 1;
+}
+
+/* ---------- 新建分组行 ---------- */
+
+.new-group-row {
+	display: flex;
+	gap: 8px;
+	margin-bottom: var(--sg-gap);
+}
+
+.new-group-row .text-input {
+	flex: 1;
+}
+
+/* ---------- 状态条（AntD Alert 形态） ---------- */
+
+.status {
+	margin-bottom: var(--sg-gap);
+	padding: calc(var(--sg-row-y) + 1px) 12px;
+	border-radius: 8px;
+	background: var(--color-bg-panel, var(--sg-bg-container));
+	color: var(--color-text-secondary, var(--sg-text-2));
+	overflow-wrap: anywhere;
+}
+
+.status-error {
+	background: color-mix(in srgb, var(--color-danger, var(--sg-danger)) 10%, var(--sg-bg-container));
+	border: 1px solid color-mix(in srgb, var(--color-danger, var(--sg-danger)) 40%, transparent);
+	color: var(--color-danger, var(--sg-danger));
+}
+
+/* ---------- 分组卡片（AntD Card 形态） ---------- */
+
+.groups {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sg-gap);
+}
+
+.group {
+	border: 1px solid var(--color-border-default, var(--sg-border-2));
+	border-radius: 8px;
+	background: var(--color-bg-panel, var(--sg-bg-container));
+	overflow: hidden;
+}
+
+.group-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: var(--sg-head-y) var(--sg-card-pad);
+}
+
+.chevron {
+	transition: transform 0.2s;
+	flex-shrink: 0;
+}
+
+.group:not(.collapsed) .chevron {
+	transform: rotate(90deg);
+}
+
+.group-name {
+	font-weight: 600;
+	font-size: var(--sg-font);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.group-count {
+	color: var(--color-text-secondary, var(--sg-text-2));
+	white-space: nowrap;
+	font-size: var(--sg-font-s);
+}
+
+.group-actions {
+	margin-left: auto;
+	display: flex;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.ungrouped .group-name {
+	font-weight: 500;
+	color: var(--color-text-secondary, var(--sg-text-2));
+}
+
+.rename-input {
+	flex: 1;
+	height: var(--sg-ctl-s);
+	padding: 0 7px;
+	font-size: var(--sg-font-s);
+}
+
+/* ---------- 删除确认条 ---------- */
+
+.confirm-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: var(--sg-row-y) var(--sg-card-pad);
+	border-top: 1px solid var(--color-border-default, var(--sg-border-2));
+}
+
+.confirm-text {
+	flex: 1;
+	color: var(--color-text-secondary, var(--sg-text-2));
+	font-size: var(--sg-font-s);
+	min-width: 0;
+}
+
+/* ---------- 会话条目（AntD List item 形态） ---------- */
+
+.session-list {
+	border-top: 1px solid var(--color-border-default, var(--sg-border-2));
+}
+
+.session {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: var(--sg-row-y) var(--sg-card-pad) var(--sg-row-y) calc(var(--sg-card-pad) + 16px);
+}
+
+.session + .session {
+	border-top: 1px solid var(--color-border-default, var(--sg-border-2));
+}
+
+.session-main {
+	flex: 1;
+	min-width: 0;
+	cursor: pointer;
+	padding: 6px 10px;
+	border-radius: 4px;
+	transition: background 0.2s;
+}
+
+.session-main:hover {
+	background: var(--color-bg-input, var(--sg-bg-input));
+}
+
+.session-main:hover {
+	background: color-mix(in srgb, var(--color-accent, var(--sg-accent)) 6%, transparent);
+}
+
+.session.current .session-main {
+	position: relative;
+	/* 高亮条与文本的间距加大，避免视觉太紧 */
+	padding-left: 18px;
+}
+
+/* 当前会话：左侧高亮条 + 加粗标题（不再叠加 badge 与彩色文字，一行一个状态标记） */
+.session.current .session-main::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 6px;
+	bottom: 6px;
+	width: 3px;
+	background: var(--color-accent, var(--sg-accent));
+}
+
+.session.current .session-title {
+	font-weight: 600;
+}
+
+/* 不可读会话：标题降为二级灰 + 「不可读」标签，不整行降透明度 */
+.session.unreadable .session-title {
+	color: var(--color-text-secondary, var(--sg-text-2));
+}
+
+.session-title {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: var(--sg-font);
+}
+
+/* 标题行：活跃绿点 + 标题 + 相对时间（＋不可读时的中性标签） */
+
+.session-title-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.session-title-row .session-title {
+	flex: 1;
+}
+
+.active-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--sg-ok);
+	flex-shrink: 0;
+}
+
+.session-meta {
+	color: var(--color-text-secondary, var(--sg-text-2));
+	font-size: var(--sg-font-s);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-top: 2px;
+}
+
+/* 紧凑单行：标题行尾的相对时间（详情进 ⓘ 弹层） */
+
+.compact-time {
+	flex-shrink: 0;
+	color: var(--color-text-secondary, var(--sg-text-2));
+	font-size: var(--sg-font-s);
+}
+
+/* 拖拽归组 */
+
+.session[draggable="true"] {
+	-webkit-user-drag: element;
+}
+
+.session.dragging {
+	opacity: 0.45;
+}
+
+.group.drag-over {
+	border-color: var(--color-accent, var(--sg-accent));
+}
+
+.group.drag-over {
+	border-color: color-mix(in srgb, var(--color-accent, var(--sg-accent)) 60%, transparent);
+	background: color-mix(in srgb, var(--color-accent, var(--sg-accent)) 4%, var(--sg-bg-container));
+}
+
+.session-remove {
+	flex-shrink: 0;
+}
+
+.session-remove:hover {
+	color: var(--color-danger, var(--sg-danger));
+	background: color-mix(in srgb, var(--color-danger, var(--sg-danger)) 10%, transparent);
+}
+
+/* 星标：默认灰描边空星，点亮后金色实星 */
+
+.session-star {
+	flex-shrink: 0;
+}
+
+.session-star.starred {
+	color: var(--sg-star);
+}
+
+.session-star.starred:hover {
+	background: color-mix(in srgb, var(--sg-star) 12%, transparent);
+	color: var(--sg-star);
+}
+
+/* ---------- 空态 / 提示 ---------- */
+
+.empty-state {
+	padding: calc(var(--sg-gap) * 2.5) 12px;
+	text-align: center;
+}
+
+.empty-title {
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.hint {
+	color: var(--sg-text-3);
+	padding: var(--sg-row-y) var(--sg-card-pad);
+	font-size: var(--sg-font-s);
+}
+
+/* ---------- 添加会话弹层（AntD Modal 形态） ---------- */
+
+.overlay {
+	position: fixed;
+	inset: 0;
+	background: var(--sg-scrim);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+}
+
+.modal {
+	width: min(520px, 100%);
+	max-height: min(70vh, 560px);
+	display: flex;
+	flex-direction: column;
+	background: var(--color-bg-panel, var(--sg-bg-container));
+	border: 1px solid var(--color-border-default, var(--sg-border-2));
+	border-radius: 8px;
+	padding: var(--sg-modal-pad) var(--sg-modal-pad) calc(var(--sg-modal-pad) + 4px);
+	gap: var(--sg-gap);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12),
+		0 9px 28px 8px rgba(0, 0, 0, 0.05);
+}
+
+.modal-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 0 4px;
+}
+
+.modal-title {
+	font-weight: 600;
+	font-size: 16px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.modal-list {
+	flex: 1;
+	overflow-y: auto;
+	border: 1px solid var(--color-border-default, var(--sg-border-2));
+	border-radius: 6px;
+	padding: 4px;
+}
+
+.modal-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: calc(var(--sg-row-y) - 2px) 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+
+.modal-row:hover {
+	background: var(--color-bg-input, var(--sg-bg-input));
+}
+
+.modal-row:hover {
+	background: color-mix(in srgb, var(--color-accent, var(--sg-accent)) 6%, transparent);
+}
+
+.modal-row-main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.modal-row-main .session-title {
+	flex: 1;
+}
+
+/* 标签（AntD Tag 形态） */
+
+.tag {
+	flex-shrink: 0;
+	font-size: var(--sg-font-s);
+	line-height: 20px;
+	padding: 0 8px;
+	border-radius: 4px;
+	border: 1px solid var(--color-border-default, var(--sg-border-2));
+	color: var(--color-text-secondary, var(--sg-text-2));
+	white-space: nowrap;
+}
+
+.modal-foot {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 4px;
+}
+
+.modal-hint {
+	flex: 1;
+	color: var(--sg-text-3);
+	font-size: var(--sg-font-s);
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ---------- 会话详情悬浮卡片（ⓘ 悬停触发，AntD Popover 形态） ---------- */
+
+.session-pop {
+	position: fixed;
+	z-index: 50;
+	width: min(320px, calc(100vw - 16px));
+	max-height: min(60vh, 480px);
+	overflow-y: auto;
+	background: var(--color-bg-panel, var(--sg-bg-container));
+	border: 1px solid var(--color-border-default, var(--sg-border-2));
+	border-radius: 8px;
+	padding: 10px 10px 6px;
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px -4px rgba(0, 0, 0, 0.18),
+		0 9px 28px 8px rgba(0, 0, 0, 0.08);
+	/* 入出场：透明 + 2px 下沉，加 .visible 时上浮显现（visibility 延迟切换保住淡出过程） */
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(2px);
+	transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+}
+
+.session-pop.visible {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.session-pop {
+		transition: none;
+	}
+}
+
+.session-pop-title {
+	font-weight: 600;
+	font-size: var(--sg-font);
+	padding: 0 8px 8px;
+	border-bottom: 1px solid var(--color-border-default, var(--sg-border-2));
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.session-pop-body {
+	padding-top: 4px;
+}
+
+.info-row {
+	display: flex;
+	gap: 12px;
+	padding: 7px 8px;
+	border-radius: 4px;
+}
+
+.info-row + .info-row {
+	border-top: 1px solid var(--color-border-default, var(--sg-border-2));
+}
+
+.info-label {
+	flex-shrink: 0;
+	width: 72px;
+	color: var(--color-text-secondary, var(--sg-text-2));
+	font-size: var(--sg-font-s);
+	line-height: 1.66;
+}
+
+.info-value {
+	flex: 1;
+	min-width: 0;
+	word-break: break-all;
+}
+
+.session-info {
+	flex-shrink: 0;
+}
+
+/* hidden 属性要压过上面的 display:flex
+   （类选择器 + 属性选择器，特异性高于单类，不需要 !important） */
+.overlay[hidden],
+.new-group-row[hidden],
+.status[hidden] {
+	display: none;
+}
+
+/* ---------- 工作区范围：行内目录短名（跨项目区分） ---------- */
+
+.session-dir {
+	flex-shrink: 0;
+	max-width: 30%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--color-text-secondary, var(--sg-text-2));
+	font-size: var(--sg-font-s);
+	background: var(--color-bg-input, var(--sg-bg-input));
+	border-radius: 3px;
+	padding: 0 5px;
+}
