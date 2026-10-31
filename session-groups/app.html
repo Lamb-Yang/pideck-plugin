@@ -4,60 +4,119 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>会话分组</title>
-		<!-- 首帧主题引导：先于首帧恢复上次主题/宿主配色，避免按暗色兜底先画一帧（闪黑） -->
+		<!-- 首帧主题引导：先于首帧恢复上次主题/宿主配色，避免按兑底色先画一帧（闪色） -->
 		<script src="theme-boot.js"></script>
 		<link rel="stylesheet" href="styles.css" />
 	</head>
 	<body>
-		<header class="topbar">
-			<div class="topbar-info">
-				<h1 id="project-name" class="project-name"></h1>
-				<span id="project-count" class="project-count"></span>
-			</div>
-			<div class="topbar-controls">
-				<button id="btn-starred" class="btn" type="button"></button>
-				<button id="btn-toggle-all" class="btn" type="button"></button>
-				<button id="btn-new" class="btn primary" type="button"></button>
-			</div>
-		</header>
+		<div class="page">
+			<header class="page-head">
+				<div class="page-head-text">
+					<h1 id="scope-title" class="page-title"></h1>
+					<p id="scope-stats" class="page-subtitle"></p>
+				</div>
+				<div class="page-head-actions">
+					<button id="btn-toggle-all" class="btn btn-outline" type="button"></button>
+					<button id="btn-new" class="btn btn-primary" type="button"></button>
+				</div>
+			</header>
 
-		<div class="search-row">
-			<input id="search-input" class="text-input" type="text" />
-			<button id="search-clear" class="icon-btn" type="button" hidden aria-label="clear">
-				<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
-			</button>
-		</div>
-
-		<div id="new-group-row" class="new-group-row" hidden>
-			<input id="new-group-input" class="text-input" type="text" maxlength="80" />
-			<button id="new-group-ok" class="btn primary" type="button"></button>
-			<button id="new-group-cancel" class="btn" type="button"></button>
-		</div>
-
-		<div id="status" class="status" hidden></div>
-
-		<main id="groups" class="groups"></main>
-
-		<div id="overlay" class="overlay" hidden>
-			<div class="modal" role="dialog" aria-modal="true">
-				<div class="modal-head">
-					<span id="modal-title" class="modal-title"></span>
-					<button id="modal-close" class="icon-btn" type="button" aria-label="close">
-						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
+			<div class="filters">
+				<button id="btn-starred" class="btn btn-outline btn-starred-filter" type="button" aria-pressed="false"></button>
+				<div class="search-field">
+					<svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+						<circle cx="11" cy="11" r="7"></circle>
+						<path d="m20 20-3.5-3.5"></path>
+					</svg>
+					<input id="search-input" class="input search-input" type="search" autocomplete="off" spellcheck="false" />
+					<button id="search-clear" class="search-clear" type="button" hidden></button>
+				</div>
+				<div id="dir-filter" class="select">
+					<button id="dir-filter-trigger" class="select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+						<span id="dir-filter-value" class="select-value"></span>
+						<svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+							<path d="m6 9 6 6 6-6"></path>
+						</svg>
 					</button>
 				</div>
-				<input id="modal-search" class="text-input" type="text" />
-				<div id="modal-list" class="modal-list"></div>
+			</div>
+
+			<div id="status" class="status" role="status" hidden></div>
+
+			<main id="groups" class="groups"></main>
+		</div>
+
+		<!-- 新建分组 / 编辑目录范围：名称 + 目录多选（选中目录里的会话自动入组） -->
+		<div id="create-overlay" class="overlay" hidden>
+			<div class="modal" role="dialog" aria-modal="true" aria-labelledby="create-title">
+				<div class="modal-head">
+					<h2 id="create-title" class="modal-title"></h2>
+					<button id="create-close" class="icon-btn" type="button"></button>
+				</div>
+				<div class="modal-body">
+					<label id="create-name-label" class="field-label" for="create-name"></label>
+					<input id="create-name" class="input" type="text" maxlength="80" autocomplete="off" spellcheck="false" />
+					<p id="create-note" class="hint" hidden></p>
+					<div class="section-head">
+						<span id="create-dirs-head" class="section-title"></span>
+						<span class="section-actions">
+							<button id="create-dirs-all" class="btn btn-ghost btn-xs" type="button"></button>
+							<button id="create-dirs-none" class="btn btn-ghost btn-xs" type="button"></button>
+						</span>
+					</div>
+					<div id="create-dirs" class="picker"></div>
+				</div>
 				<div class="modal-foot">
-					<span id="modal-hint" class="modal-hint"></span>
-					<button id="modal-cancel" class="btn" type="button"></button>
-					<button id="modal-save" class="btn primary" type="button"></button>
+					<span id="create-hint" class="hint"></span>
+					<button id="create-cancel" class="btn btn-outline" type="button"></button>
+					<button id="create-ok" class="btn btn-primary" type="button"></button>
+				</div>
+			</div>
+		</div>
+
+		<!-- 添加会话：按目录分节，勾选即加入本组（不互斥） -->
+		<div id="overlay" class="overlay" hidden>
+			<div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+				<div class="modal-head">
+					<h2 id="modal-title" class="modal-title"></h2>
+					<button id="modal-close" class="icon-btn" type="button"></button>
+				</div>
+				<div class="modal-body">
+					<div class="search-field">
+						<svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+							<circle cx="11" cy="11" r="7"></circle>
+							<path d="m20 20-3.5-3.5"></path>
+						</svg>
+						<input id="modal-search" class="input search-input" type="search" autocomplete="off" spellcheck="false" />
+					</div>
+					<div id="modal-list" class="picker picker-tall"></div>
+				</div>
+				<div class="modal-foot">
+					<span id="modal-hint" class="hint"></span>
+					<button id="modal-cancel" class="btn btn-outline" type="button"></button>
+					<button id="modal-save" class="btn btn-primary" type="button"></button>
 				</div>
 			</div>
 		</div>
 
 		<!-- 会话详情悬浮卡片：ⓘ 悬停/聚焦/点击时由 app.js 填充内容并定位 -->
-		<div id="session-pop" class="session-pop" hidden></div>
+		<div id="session-pop" class="session-pop" hidden>
+
+		<!-- 删除分组确认（不用 window.confirm：渲染器里不可用且阻塞） -->
+		<div id="confirm-overlay" class="overlay" hidden>
+			<div class="modal modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+				<div class="modal-head">
+					<h2 id="confirm-title" class="modal-title"></h2>
+				</div>
+				<div class="modal-body">
+					<p id="confirm-text" class="confirm-text"></p>
+				</div>
+				<div class="modal-foot">
+					<button id="confirm-cancel" class="btn btn-outline" type="button"></button>
+					<button id="confirm-ok" class="btn btn-danger" type="button"></button>
+				</div>
+			</div>
+		</div>
 
 		<script type="module" src="app.js"></script>
 	</body>
